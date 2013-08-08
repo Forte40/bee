@@ -622,11 +622,11 @@ end
 
 function scoreBee(princessData, droneData)
   local droneSpecies = {droneData["speciesPrimary"], droneData["speciesSecondary"]}
-  if droneSpecies[1] == droneSpecies[2] then droneSpecies[2] = nil end
   -- check for untargeted species
   if not bees[droneSpecies[1]].targeted or not bees[droneSpecies[2]].targeted then
     return 0
   end
+  if droneSpecies[1] == droneSpecies[2] then droneSpecies[2] = nil end
   local princessSpecies = {princessData["speciesPrimary"], princessData["speciesSecondary"]}
   if princessSpecies[1] == princessSpecies[2] then princessSpecies[2] = nil end
   local max = math.max
