@@ -1,4 +1,4 @@
--- BeeAnalyzer 4.2
+-- BeeAnalyzer 4.3
 -- Original code by Direwolf20
 -- Hotfix 1 by Mandydax
 -- Hotfix 2 by Mikeyhun/MaaadMike
@@ -15,6 +15,45 @@
 --     Changed breeding to keep stock of good bees to prevent losing attributes
 --     Added logging
 --     Changed scoring to look for best combination of princess and drone
+-- 4.3 Updated targeting
+
+-- attribute scoring for same species tie-breaking -----------------------------
+
+scoresFertility = {
+  [1] = 0.1,
+  [2] = 0.2,
+  [3] = 0.3,
+  [4] = 0.4
+}
+scoresSpeed = {
+  ["0.3"] = 0.01,
+  ["0.6"] = 0.02,
+  ["0.8"] = 0.03,
+  ["1"]   = 0.04,
+  ["1.2"] = 0.05,
+  ["1.4"] = 0.06,
+  ["1.7"] = 0.07
+}
+scores = {
+  diurnal      =0.004,
+  nocturnal    =0.002,
+  tolerantFlyer=0.001,
+  caveDwelling =0.0001
+}
+scoresTolerance = {
+  ["NONE"]   = 0.00000,
+  ["UP_1"]   = 0.00001,
+  ["UP_2"]   = 0.00002,
+  ["UP_3"]   = 0.00003,
+  ["DOWN_1"] = 0.00001,
+  ["DOWN_2"] = 0.00002,
+  ["DOWN_3"] = 0.00003,
+  ["BOTH_1"] = 0.00002,
+  ["BOTH_2"] = 0.00004,
+  ["BOTH_3"] = 0.00006
+}
+
+-- the bee graph ---------------------------------------------------------------
 
 bees = {}
 
@@ -50,6 +89,8 @@ function addOffspring(offspring, parentss)
   end
 end
 
+-- score bees that have no parent combinations as 1
+-- iteratively find the next bee up the line and increase the score
 function scoreBees()
   -- find all bees with no mutateFrom data
   local beeCount = 0
@@ -62,7 +103,7 @@ function scoreBees()
     end
   end
   while beeCount > 0 do
-    beeScore = beeScore * 2
+    beeScore = beeScore + 1
     -- find all bees where all parent combos are scored
     for name, beeData in pairs(bees) do
       if not beeData.score then
@@ -88,6 +129,7 @@ function scoreBees()
   end
 end
 
+-- produce combinations from 1 or 2 lists
 function choose(list, list2)
   local newList = {}
   if list2 then
@@ -380,17 +422,7 @@ addOffspring("Eldritch", {{"Mystical", "Cultivated"}, {"Sorcerous", "Cultivated"
 
 scoreBees()
 
-function targetBee(name)
-  local bee = bees[name]
-  if bee and not bee.targeted then
-    bee.targeted = true
-    for i, parents in ipairs(bee.mutateFrom) do
-      for j, parent in ipairs(parents) do
-        targetBee(parent)
-      end
-    end
-  end
-end
+-- logging ---------------------------------------------------------------------
 
 local logFile = fs.open("bee.log", "w")
 function log(msg)
@@ -405,6 +437,8 @@ function logLine(msg)
   logFile.flush()
   io.write(msg.."\n")
 end
+
+-- analyzing functions ---------------------------------------------------------
 
 -- Fix for some versions returning bees.species.*
 function fixName(name)
@@ -586,46 +620,16 @@ function analyzeBees()
   return princessData, droneData
 end
 
-scoresSpeed = {
-  ["0.3"] = 0.01,
-  ["0.6"] = 0.02,
-  ["0.8"] = 0.03,
-  ["1"]   = 0.04,
-  ["1.2"] = 0.05,
-  ["1.4"] = 0.06,
-  ["1.7"] = 0.07
-}
-scoresFertility = {
-  [1] = 0.1,
-  [2] = 0.2,
-  [3] = 0.3,
-  [4] = 0.4
-}
-scoresTolerance = {
-  ["NONE"]   = 0.00000,
-  ["UP_1"]   = 0.00001,
-  ["UP_2"]   = 0.00002,
-  ["UP_3"]   = 0.00003,
-  ["DOWN_1"] = 0.00001,
-  ["DOWN_2"] = 0.00002,
-  ["DOWN_3"] = 0.00003,
-  ["BOTH_1"] = 0.00002,
-  ["BOTH_2"] = 0.00004,
-  ["BOTH_3"] = 0.00006
-}
-scores = {
-  diurnal      =0.004,
-  nocturnal    =0.002,
-  tolerantFlyer=0.001,
-  caveDwelling =0.0001
-}
-
 function scoreBee(princessData, droneData)
-  local max = math.max
   local droneSpecies = {droneData["speciesPrimary"], droneData["speciesSecondary"]}
   if droneSpecies[1] == droneSpecies[2] then droneSpecies[2] = nil end
+  -- check for untargeted species
+  if not bees[droneSpecies[1]].targeted or not bees[droneSpecies[2]].targeted then
+    return 0
+  end
   local princessSpecies = {princessData["speciesPrimary"], princessData["speciesSecondary"]}
   if princessSpecies[1] == princessSpecies[2] then princessSpecies[2] = nil end
+  local max = math.max
   local score = 0
   for _, combo in ipairs(choose(princessSpecies, droneSpecies)) do
     score = max(score, bees[combo[1]].score, bees[combo[2]].score)
@@ -648,10 +652,6 @@ function scoreBee(princessData, droneData)
   score = score + max(scoresTolerance[droneData["toleranceTemperature"]], scoresTolerance[princessData["toleranceTemperature"]])
   score = score + max(scoresTolerance[droneData["toleranceHumidity"]], scoresTolerance[princessData["toleranceHumidity"]])
   return score
-end
- 
-function log2(num)
-  return num == 0 and 0.0 or math.log(num)/math.log(2)
 end
 
 function printHeader()
@@ -711,16 +711,32 @@ function printBee(beeData)
   end
 end
 
-function dropExcess()
-  for i = 9, 16 do
+function dropExcess(droneData)
+  local count = 0
+  for i = 1, 16 do
     if turtle.getItemCount(i) > 0 then
-      turtle.select(i)
-      turtle.dropDown()
+      -- check for untargeted species
+      if droneData[i] then
+        if not bees[droneData[i]["speciesPrimary"]].targeted
+            or not bees[droneData[i]["speciesSecondary"]].targeted then
+          turtle.select(i)
+          turtle.dropDown()
+        end
+      else
+        count = count + 1
+      end
+      -- drop drones over 9 to clear space for newly bred bees and product
+      if count > 9 then
+        turtle.select(i)
+        turtle.dropDown()
+        count = count - 1
+      end
     end
-   end  
+  end  
 end
 
 function isPurebred(princessData, droneData)
+  -- check if princess and drone are exactly the same and no chance for mutation
   if princessData["speciesPrimary"] ~= princessData["speciesSecondary"] then
     return false
   end
@@ -733,6 +749,7 @@ function isPurebred(princessData, droneData)
 end
 
 function getUnknown(princessData, droneData)
+  -- lists species that are not in the bee graph
   local unknownSpecies = {}
   if not bees[princessData["speciesPrimary"]] then
     table.insert(unknownSpecies, princessData["speciesPrimary"])
@@ -751,15 +768,32 @@ function getUnknown(princessData, droneData)
   return unknownSpecies
 end
 
--- targeting
+-- targeting -------------------------------------------------------------------
 
+-- set species and all parents to targeted
+function targetBee(name)
+  local bee = bees[name]
+  if bee and not bee.targeted then
+    bee.targeted = true
+    for i, parents in ipairs(bee.mutateFrom) do
+      for j, parent in ipairs(parents) do
+        targetBee(parent)
+      end
+    end
+  end
+end
+
+-- set bee graph entry to targeted if species was specified on the command line
+-- otherwise set all entries to targeted
 tArgs = { ... }
-if tArgs[1] then
-  targetBee(tArgs[1])
+if #tArgs > 0 then
   logLine("targeting bee species:")
-  for name, data in pairs(bees) do
-    if data.targeted then
-      logLine(name .. string.rep(" ", 20-#name), data.score)
+  for i, target in ipairs(tArgs) do
+    targetBee(target)
+    for name, data in pairs(bees) do
+      if data.targeted and data.score > 1 then
+        logLine(name .. string.rep(" ", 20-#name), data.score)
+      end
     end
   end
 else
@@ -768,7 +802,7 @@ else
   end
 end
 
--- breeding loop
+-- breeding loop ---------------------------------------------------------------
 
 logLine("Clearing system...")
 clearSystem()
@@ -793,7 +827,7 @@ while true do
       break
     end
     breedBees(1, 2)
-    dropExcess()
+    dropExcess(droneData)
   end
   getBees()
 end
