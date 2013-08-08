@@ -103,7 +103,7 @@ function scoreBees()
     end
   end
   while beeCount > 0 do
-    beeScore = beeScore + 1
+    beeScore = beeScore * 4
     -- find all bees where all parent combos are scored
     for name, beeData in pairs(bees) do
       if not beeData.score then
@@ -135,13 +135,17 @@ function choose(list, list2)
   if list2 then
     for i = 1, #list2 do
       for j = 1, #list do
-        table.insert(newList, {list[j], list2[i]})
+        if list[j] ~= list[i] then
+          table.insert(newList, {list[j], list2[i]})
+        end
       end
     end
   else
     for i = 1, #list do
       for j = i, #list do
-        table.insert(newList, {list[i], list[j]})
+        if list[i] ~= list[j] then
+          table.insert(newList, {list[i], list[j]})
+        end
       end
     end
   end
@@ -427,7 +431,7 @@ scoreBees()
 local logFile = fs.open("bee.log", "w")
 function log(msg)
   msg = msg or ""
-  logFile.write(msg)
+  logFile.write(tostring(msg))
   logFile.flush()
   io.write(msg)
 end
@@ -515,7 +519,7 @@ function breedBees(princessSlot, droneSlot)
 end
  
 function ditchProduct()  
-  logLine("ditching product...")
+  print("ditching product...")
   turtle.turnLeft()
   m = peripheral.wrap("front")
   for i = 1, 16 do
@@ -595,6 +599,7 @@ function analyzeBees()
       princessSlot = 1
     end
     -- bubble sort drones
+    print("sorting drones...")
     for i = 2, 16 do
       if turtle.getItemCount(i) > 0 then
         droneData[i].score = scoreBee(princessData, droneData[i])
@@ -616,6 +621,7 @@ function analyzeBees()
       end
     end
   end
+  logLine()
   turtle.turnRight()
   return princessData, droneData
 end
@@ -626,22 +632,45 @@ function scoreBee(princessData, droneData)
   if not bees[droneSpecies[1]].targeted or not bees[droneSpecies[2]].targeted then
     return 0
   end
-  if droneSpecies[1] == droneSpecies[2] then droneSpecies[2] = nil end
   local princessSpecies = {princessData["speciesPrimary"], princessData["speciesSecondary"]}
-  if princessSpecies[1] == princessSpecies[2] then princessSpecies[2] = nil end
   local max = math.max
-  local score = 0
-  for _, combo in ipairs(choose(princessSpecies, droneSpecies)) do
-    score = max(score, bees[combo[1]].score, bees[combo[2]].score)
+  local score
+  --local scores = {}
+  local maxScore = 0
+  --logLine("parents "..princessSpecies[1]..":"..princessSpecies[2].." + "..droneSpecies[1]..":"..droneSpecies[2])
+  for _, combo in ipairs({{princessSpecies[1], droneSpecies[1]}
+                         ,{princessSpecies[1], droneSpecies[2]}
+                         ,{princessSpecies[2], droneSpecies[1]}
+                         ,{princessSpecies[2], droneSpecies[2]}}) do
+    --log("  combo "..combo[1]..":"..combo[2])
+    -- find maximum score for each combo
+    score = max(bees[combo[1]].score, bees[combo[2]].score)
+    --log(" base="..tostring(score))
     for name, beeData in pairs(bees) do
-      for i, parents in ipairs(beeData.mutateFrom) do
-        if combo[1] == parents[1] and combo[2] == parents[2]
-            or combo[2] == parents[1] and combo[1] == parents[2] then
-          score = max(score, beeData.score)
+      if beeData.targeted then
+        for i, parents in ipairs(beeData.mutateFrom) do
+          if combo[1] == parents[1] and combo[2] == parents[2]
+              or combo[2] == parents[1] and combo[1] == parents[2] then
+            if beeData.score > score then
+              --log(" "..name:sub(1,3).."="..tostring(beeData.score))
+            end
+            score = max(score, beeData.score)
+          end
         end
       end
     end
+    maxScore = maxScore + score
+    --table.insert(scores, score)
+    --maxScore = max(maxScore, score)
+    --logLine()
   end
+  --log("  scores:")
+  -- add one for each combination that results in the maximum score
+  score = maxScore
+  --for _, s in ipairs(scores) do
+    --log(" "..tostring(s))
+  --end
+  --logLine(" "..tostring(score))
   -- score attributes
   score = score + max(scoresFertility[droneData["fertility"]], scoresFertility[princessData["fertility"]])
   score = score + max(scoresSpeed[tostring(droneData["speed"])], scoresSpeed[tostring(princessData["speed"])])
@@ -712,16 +741,15 @@ function printBee(beeData)
 end
 
 function dropExcess(droneData)
+  print("dropping excess...")
   local count = 0
   for i = 1, 16 do
     if turtle.getItemCount(i) > 0 then
       -- check for untargeted species
-      if droneData[i] then
-        if not bees[droneData[i]["speciesPrimary"]].targeted
-            or not bees[droneData[i]["speciesSecondary"]].targeted then
-          turtle.select(i)
-          turtle.dropDown()
-        end
+      if droneData[i] and (not bees[droneData[i]["speciesPrimary"]].targeted
+          or not bees[droneData[i]["speciesSecondary"]].targeted) then
+        turtle.select(i)
+        turtle.dropDown()
       else
         count = count + 1
       end
