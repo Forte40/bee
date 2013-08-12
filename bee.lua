@@ -577,15 +577,19 @@ function analyzeBees()
     if turtle.getItemCount(i) > 0 then
       turtle.select(i)
       turtle.drop()
-      local beeData = beealyzer.analyze()
+      local beeData = beealyzer.analyze()        
       turtle.suck()
-      beeData["speciesPrimary"] = fixName(beeData["speciesPrimary"])
-      beeData["speciesSecondary"] = fixName(beeData["speciesSecondary"])
-      if beeData["type"] == "princess" then
-        princessData = beeData
-        princessSlot = i
+      if not beeData["speciesPrimary"] then
+        print("Bee "..i.." not correctly analyzed")
       else
-        droneData[i] = beeData
+        beeData["speciesPrimary"] = fixName(beeData["speciesPrimary"])
+        beeData["speciesSecondary"] = fixName(beeData["speciesSecondary"])
+        if beeData["type"] == "princess" then
+          princessData = beeData
+          princessSlot = i
+        else
+          droneData[i] = beeData
+        end
       end
     else
       freeSlot = i
@@ -601,7 +605,7 @@ function analyzeBees()
     -- bubble sort drones
     print("sorting drones...")
     for i = 2, 16 do
-      if turtle.getItemCount(i) > 0 then
+      if turtle.getItemCount(i) > 0 and droneData[i] then
         droneData[i].score = scoreBee(princessData, droneData[i])
         for j = i - 1, 2, -1 do
           if droneData[j+1].score > droneData[j].score then
