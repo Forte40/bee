@@ -451,11 +451,15 @@ end
 
 function clearSystem()
   -- orient turtle
-  while turtle.detect() do
+  while true do
+    local p = peripheral.wrap("front")
+    if p and p.isMember then
+      break
+    end
     turtle.turnRight()
   end
   -- clear out analyzer
-  turtle.turnRight()
+  turtle.turnLeft()
   while turtle.suck() do end
   -- clear out beealyzer
   turtle.turnRight()
@@ -526,7 +530,7 @@ function ditchProduct()
     if turtle.getItemCount(i) > 0 then
       turtle.select(i)
       turtle.drop()
-      if not m.isBee() then
+      if not m.isMember() then
         turtle.suck()
         turtle.dropDown()
       else
