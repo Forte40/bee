@@ -192,10 +192,10 @@ addOffspring("Demonic", {{"Fiendish", "Sinister"}})
 -- Monastic Branch
 addOffspring("Secluded", {{"Monastic", "Austere"}})
 addOffspring("Hermitic", {{"Secluded", "Monastic"}})
--- Nobel Branch
-addOffspring("Nobel", {{"Cultivated", "Common"}})
-addOffspring("Majestic", {{"Nobel", "Cultivated"}})
-addOffspring("Imperial", {{"Majestic", "Nobel"}})
+-- Noble Branch
+addOffspring("Noble", {{"Cultivated", "Common"}})
+addOffspring("Majestic", {{"Noble", "Cultivated"}})
+addOffspring("Imperial", {{"Majestic", "Noble"}})
 -- Tropical Branch
 addOffspring("Exotic", {{"Austere", "Tropical"}})
 addOffspring("Edenic", {{"Exotic", "Tropical"}})
@@ -213,7 +213,7 @@ addOffspring("Citrus", {{"Farmed", "Modest"}})
 addOffspring("Fermented", {{"Rural", "Fruity"}})
 addOffspring("Minty", {{"Farmed", "Tropical"}})
 -- Alloyed Branch
-addOffspring("Impregnable", {{"Resilient", "Nobel"}})
+addOffspring("Impregnable", {{"Resilient", "Noble"}})
 -- Aquatic Branch
 addOffspring("River", {{"Common", "Water"}})
 addOffspring("Ocean", {{"Diligent", "Water"}})
