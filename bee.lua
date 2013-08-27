@@ -658,7 +658,8 @@ function scoreBee(princessData, droneData)
             if beeData.score > score then
               --log(" "..name:sub(1,3).."="..tostring(beeData.score))
             end
-            score = max(score, beeData.score)
+            -- deduct 1 to make potential scores less than base scores
+            score = max(score, beeData.score - 1)
           end
         end
       end
