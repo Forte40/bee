@@ -766,7 +766,7 @@ function isPurebred(princessData, droneData)
     return false
   end
   for key, value in pairs(princessData) do
-    if value ~= droneData[key] and key ~= "territory" and key ~= "type" then
+    if value ~= droneData[key] and key ~= "territory" and key ~= "type" and key ~= "slot" then
       return false
     end
   end
