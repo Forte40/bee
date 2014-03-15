@@ -112,7 +112,7 @@ function scoreBees()
     end
   end
   while beeCount > 0 do
-    beeScore = beeScore * 4
+    beeScore = beeScore * 2
     -- find all bees where all parent combos are scored
     for name, beeData in pairs(bees) do
       if not beeData.score then
@@ -689,17 +689,13 @@ function scoreBee(princessData, droneData)
                          ,{princessSpecies[2], droneSpecies[1]}
                          ,{princessSpecies[2], droneSpecies[2]}}) do
     -- find maximum score for each combo
-    score = math.max(bees[combo[1]].score, bees[combo[2]].score)
+    score = (bees[combo[1]].score + bees[combo[2]].score) / 2
     for name, beeData in pairs(bees) do
       if beeData.targeted then
         for i, parents in ipairs(beeData.mutateFrom) do
           if combo[1] == parents[1] and combo[2] == parents[2]
               or combo[2] == parents[1] and combo[1] == parents[2] then
-            if beeData.score > score then
-              --log(" "..name:sub(1,3).."="..tostring(beeData.score))
-            end
-            -- deduct 1 to make potential scores less than base scores
-            score = math.max(score, beeData.score - 1)
+            score = (score + beeData.score) / 2
           end
         end
       end
