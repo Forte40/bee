@@ -1,4 +1,4 @@
--- BeeAnalyzer 4.3
+-- BeeAnalyzer 4.5
 -- Original code by Direwolf20
 -- Hotfix 1 by Mandydax
 -- Hotfix 2 by Mikeyhun/MaaadMike
@@ -16,9 +16,17 @@
 --     Added logging
 --     Changed scoring to look for best combination of princess and drone
 -- 4.3 Updated targeting
+-- 4.4 Switched to OpenPeripherals by Eiktyrner
+-- 4.4.1  Modified to work with:
+--          OpenPeripheral Core 0.3.0-s39
+--          OpenPeripheral Addons 0.1.0-s41
+-- 4.5 Tweaks & Fixes by Zixxl
+--     Changed sorting algorithm to selection sort, because swaps are slow
+--     Changed scoringsystem to solve a bug, if the princess is a purebred of the
+--      targeted bee
+--     Replaced all print commands with log command
 
 -- attribute scoring for same species tie-breaking -----------------------------
-
 scoresFertility = {
   [1] = 0.1,
   [2] = 0.2,
@@ -26,13 +34,13 @@ scoresFertility = {
   [4] = 0.4
 }
 scoresSpeed = {
-  ["0.3"] = 0.01,
-  ["0.6"] = 0.02,
-  ["0.8"] = 0.03,
-  ["1"]   = 0.04,
-  ["1.2"] = 0.05,
-  ["1.4"] = 0.06,
-  ["1.7"] = 0.07
+  ["0.3"] = 0.01, -- Slowest
+  ["0.6"] = 0.02, -- Slower
+  ["0.8"] = 0.03, -- Slow
+  ["1"]   = 0.04, -- Normal
+  ["1.2"] = 0.05, -- Fast
+  ["1.4"] = 0.06, -- Faster
+  ["1.7"] = 0.07  -- Fastest
 }
 scoresAttrib = {
   diurnal      =0.004,
@@ -42,15 +50,21 @@ scoresAttrib = {
 }
 scoresTolerance = {
   ["NONE"]   = 0.00000,
-  ["UP_1"]   = 0.00001,
-  ["UP_2"]   = 0.00002,
-  ["UP_3"]   = 0.00003,
-  ["DOWN_1"] = 0.00001,
-  ["DOWN_2"] = 0.00002,
-  ["DOWN_3"] = 0.00003,
-  ["BOTH_1"] = 0.00002,
-  ["BOTH_2"] = 0.00004,
-  ["BOTH_3"] = 0.00006
+  ["UP 1"]   = 0.00001,
+  ["UP 2"]   = 0.00002,
+  ["UP 3"]   = 0.00003,
+  ["UP 4"]   = 0.00004,
+  ["UP 5"]   = 0.00005,
+  ["DOWN 1"] = 0.00001,
+  ["DOWN 2"] = 0.00002,
+  ["DOWN 3"] = 0.00003,
+  ["DOWN 4"] = 0.00004,
+  ["DOWN 5"] = 0.00005,
+  ["BOTH 1"] = 0.00002,
+  ["BOTH 2"] = 0.00004,
+  ["BOTH 3"] = 0.00006,
+  ["BOTH 4"] = 0.00008,
+  ["BOTH 5"] = 0.00010
 }
 
 -- the bee graph ---------------------------------------------------------------
@@ -103,7 +117,7 @@ function scoreBees()
     end
   end
   while beeCount > 0 do
-    beeScore = beeScore * 4
+    beeScore = beeScore * 2
     -- find all bees where all parent combos are scored
     for name, beeData in pairs(bees) do
       if not beeData.score then
@@ -442,6 +456,12 @@ function logLine(msg)
   io.write(msg.."\n")
 end
 
+function logTable(table)
+  for key, value in pairs (table) do
+    logLine(key .. " = " .. tostring(value))
+  end
+end
+
 -- analyzing functions ---------------------------------------------------------
 
 -- Fix for some versions returning bees.species.*
@@ -449,24 +469,15 @@ function fixName(name)
   return name:gsub("bees%.species%.",""):gsub("^.", string.upper)
 end
 
+-- Expects the turtle facing apiary
 function clearSystem()
-  -- orient turtle
-  while true do
-    local p = peripheral.wrap("front")
-    if p and p.isMember then
-      break
-    end
-    turtle.turnRight()
-  end
+  -- clear out apiary
+  while turtle.suck() do end
+
   -- clear out analyzer
   turtle.turnLeft()
   while turtle.suck() do end
-  -- clear out beealyzer
   turtle.turnRight()
-  turtle.suck()
-  -- clear out apiary
-  turtle.turnRight()
-  while turtle.suck() do end
 end
  
 function getBees()
@@ -522,41 +533,26 @@ function breedBees(princessSlot, droneSlot)
    turtle.drop()
 end
  
+-- Turns to Analyzer and tries to drop item. 
+-- If it's not accepted (not a bee)
+-- drop to chest.
 function ditchProduct()  
-  print("ditching product...")
+  logLine("ditching product...")
   turtle.turnLeft()
   m = peripheral.wrap("front")
   for i = 1, 16 do
     if turtle.getItemCount(i) > 0 then
       turtle.select(i)
-      turtle.drop()
-      if not m.isMember() then
-        turtle.suck()
+      if not turtle.drop() then
         turtle.dropDown()
       else
-        turtle.suck()
-      end
-    end
-  end
-  turtle.turnRight()
-end
- 
-function scanBees()
-  log("scanning bees")
-  turtle.turnLeft()
-  turtle.turnLeft()
-  for i = 1, 16 do
-    if turtle.getItemCount(i) > 0 then
-      log(".")
-      turtle.select(i)
-      turtle.drop()
-      while not turtle.suck() do
-        sleep(1)
+        while not turtle.suck() do
+          sleep(1)
+        end
       end
     end
   end
   logLine()
-  turtle.turnRight()
   turtle.turnRight()
 end
 
@@ -569,22 +565,62 @@ function swapBee(slot1, slot2, freeSlot)
   turtle.transferTo(slot2)
 end  
 
+-- Turn left to Analyzer
 function analyzeBees()
   logLine("analyzing bees...")
+  turtle.turnLeft()
+
   local freeSlot
   local princessSlot
+  local highestScore
   local princessData
   local droneData = {}
-  turtle.turnLeft()
   local beealyzer = peripheral.wrap("front")
+
   for i = 1, 16 do
     if turtle.getItemCount(i) > 0 then
       turtle.select(i)
       turtle.drop()
-      local beeData = beealyzer.analyze()        
-      turtle.suck()
+
+      sleep(1) -- To make sure the drone goes through the analyzer
+
+      local tableData = beealyzer.getStackInSlot(9)
+      local beeData = {}
+
+      -- Get bees back into turtle after grabbing values
+      while not turtle.suck() do
+        sleep(1)
+      end
+
+      -- Check if it's a drone or princess
+      for key, value in pairs (tableData) do
+        if key == "rawName" then
+          if string.find(value, "princess") then
+            beeData["type"] = "princess"
+          else
+            beeData["type"] = "drone"
+          end
+        end
+      end
+
+      -- Active values
+      for key, value in pairs (tableData.beeInfo.active) do
+        if key == "species" then
+          beeData["speciesPrimary"] = value
+        else
+          beeData[key] = value
+        end
+      end
+      
+      -- Inactive values
+      for key, value in pairs (tableData.beeInfo.inactive) do
+        if key == "species" then
+          beeData["speciesSecondary"] = value
+        end
+      end
+
       if not beeData["speciesPrimary"] then
-        print("Bee "..i.." not correctly analyzed")
+        logLine("Bee "..i.." not correctly analyzed")
       else
         beeData["speciesPrimary"] = fixName(beeData["speciesPrimary"])
         beeData["speciesSecondary"] = fixName(beeData["speciesSecondary"])
@@ -606,16 +642,26 @@ function analyzeBees()
       droneData[1] = nil
       princessSlot = 1
     end
-    -- bubble sort drones
-    print("sorting drones...")
+    -- selection sort drones
+    logLine("sorting drones...")
     for i = 2, 16 do
+      highestScore = i
       if turtle.getItemCount(i) > 0 and droneData[i] then
         droneData[i].score = scoreBee(princessData, droneData[i])
-        for j = i - 1, 2, -1 do
-          if droneData[j+1].score > droneData[j].score then
-            swapBee(j+1, j, freeSlot)
-            droneData[j+1], droneData[j] = droneData[j], droneData[j+1]
+        for j = i + 1, 16 do
+          if turtle.getItemCount(j) > 0 and droneData[j] then
+            if not droneData[j].score then
+              droneData[j].score = scoreBee(princessData, droneData[j])
+            end
+            if droneData[j].score > droneData[highestScore].score then
+              highestScore = j
+            end
           end
+        end
+        -- swap bees
+        if highestScore ~= i then
+          swapBee(i, highestScore, freeSlot)
+          droneData[i], droneData[highestScore] = droneData[highestScore], droneData[i]
         end
       end
     end
@@ -641,7 +687,6 @@ function scoreBee(princessData, droneData)
     return 0
   end
   local princessSpecies = {princessData["speciesPrimary"], princessData["speciesSecondary"]}
-  local max = math.max
   local score
   local maxScore = 0
   for _, combo in ipairs({{princessSpecies[1], droneSpecies[1]}
@@ -649,17 +694,13 @@ function scoreBee(princessData, droneData)
                          ,{princessSpecies[2], droneSpecies[1]}
                          ,{princessSpecies[2], droneSpecies[2]}}) do
     -- find maximum score for each combo
-    score = max(bees[combo[1]].score, bees[combo[2]].score)
+    score = (bees[combo[1]].score + bees[combo[2]].score) / 2
     for name, beeData in pairs(bees) do
       if beeData.targeted then
         for i, parents in ipairs(beeData.mutateFrom) do
           if combo[1] == parents[1] and combo[2] == parents[2]
               or combo[2] == parents[1] and combo[1] == parents[2] then
-            if beeData.score > score then
-              --log(" "..name:sub(1,3).."="..tostring(beeData.score))
-            end
-            -- deduct 1 to make potential scores less than base scores
-            score = max(score, beeData.score - 1)
+            score = (score + beeData.score) / 2
           end
         end
       end
@@ -669,76 +710,79 @@ function scoreBee(princessData, droneData)
   -- add one for each combination that results in the maximum score
   score = maxScore
   -- score attributes
-  score = score + max(scoresFertility[droneData["fertility"]], scoresFertility[princessData["fertility"]])
+  score = score + math.max(scoresFertility[droneData["fertility"]], scoresFertility[princessData["fertility"]])
   score = score + math.min(scoresSpeed[tostring(droneData["speed"])], scoresSpeed[tostring(princessData["speed"])])
-  if droneData["diurnal"] or princessData["diurnal"] then score = score + scoresAttrib["diurnal"] end
   if droneData["nocturnal"] or princessData["nocturnal"] then score = score + scoresAttrib["nocturnal"] end
   if droneData["tolerantFlyer"] or princessData["tolerantFlyer"] then score = score + scoresAttrib["tolerantFlyer"] end
   if droneData["caveDwelling"] or princessData["caveDwelling"] then score = score + scoresAttrib["caveDwelling"] end
-  score = score + max(scoresTolerance[droneData["toleranceTemperature"]], scoresTolerance[princessData["toleranceTemperature"]])
-  score = score + max(scoresTolerance[droneData["toleranceHumidity"]], scoresTolerance[princessData["toleranceHumidity"]])
+  score = score + math.max(scoresTolerance[string.upper(droneData["temperatureTolerance"])], scoresTolerance[string.upper(princessData["temperatureTolerance"])])
+  score = score + math.max(scoresTolerance[string.upper(droneData["humidityTolerance"])], scoresTolerance[string.upper(princessData["humidityTolerance"])])
   return score
 end
 
 function printHeader()
   logLine()
-  logLine("typ species f spd d n f c tmp hmd score")
-  logLine("-|-|-------|-|---|-|-|-|-|---|---|-----")
+  logLine("sl t species f spd n f c tmp hmd score ")
+  logLine("--|-|-------|-|---|-|-|-|---|---|------")
 end
 
+-- string constants for console output
 toleranceString = {
-  ["NONE"] = "    ",
-  ["UP_1"] = " +1 ",
-  ["UP_2"] = " +2 ",
-  ["UP_3"] = " +3 ",
-  ["DOWN_1"] = " -1 ",
-  ["DOWN_2"] = " -2 ",
-  ["DOWN_3"] = " -3 ",
-  ["BOTH_1"] = "+-1 ",
-  ["BOTH_2"] = "+-2 ",
-  ["BOTH_3"] = "+-3 "
+  ["NONE"] = "  - ",
+  ["UP 1"] = " +1 ",
+  ["UP 2"] = " +2 ",
+  ["UP 3"] = " +3 ",
+  ["UP 4"] = " +4 ",
+  ["UP 5"] = " +5 ",
+  ["DOWN 1"] = " -1 ",
+  ["DOWN 2"] = " -2 ",
+  ["DOWN 3"] = " -3 ",
+  ["DOWN 4"] = " -4 ",
+  ["DOWN 5"] = " -5 ",
+  ["BOTH 1"] = "+-1 ",
+  ["BOTH 2"] = "+-2 ",
+  ["BOTH 3"] = "+-3 ",
+  ["BOTH 4"] = "+-4 ",
+  ["BOTH 5"] = "+-5 "
 }
+
+speedString = {
+  ["0.3"] = "0.3", -- Slowest
+  ["0.6"] = "0.6", -- Slower
+  ["0.8"] = "0.8", -- Slow
+  ["1"]   = "1.0", -- Normal
+  ["1.2"] = "1.2", -- Fast
+  ["1.4"] = "1.4", -- Faster
+  ["1.7"] = "1.7"  -- Fastest
+}
+
 function printBee(beeData)
-  log(beeData["slot"] < 10 and beeData["slot"].." " or beeData["slot"])
-  if (beeData["type"] == "princess") then
-    log("P ")
-  else
-    log("d ")
-  end
+  log(beeData["slot"] < 10 and " "..beeData["slot"].." " or beeData["slot"].." ")
+  -- type
+  log(beeData["type"] == "princess" and "P " or "D ")
+  -- species
   log(beeData["speciesPrimary"]:gsub("bees%.species%.",""):sub(1,3)..":"..beeData["speciesSecondary"]:gsub("bees%.species%.",""):sub(1,3).." ")
+  -- fertility
   log(tostring(beeData["fertility"]).." ")
-  log(beeData["speed"] == 1 and "1.0 " or tostring(beeData["speed"]).." ")
-  if beeData["diurnal"] then
-    log("d ")
-  else
-    log("  ")
-  end
-  if beeData["nocturnal"] then
-    log("n ")
-  else
-    log("  ")
-  end
-  if beeData["tolerantFlyer"] then
-    log("f ")
-  else
-    log("  ")
-  end
-  if beeData["caveDwelling"] then
-    log("c ")
-  else
-    log("  ")
-  end
-  log(toleranceString[beeData["toleranceTemperature"]])
-  log(toleranceString[beeData["toleranceHumidity"]])
-  if beeData.score then
-    logLine(string.format("%5.1d", beeData.score).." ")
-  else
-    logLine()
-  end
+  -- speed
+  log(speedString[tostring(beeData["speed"])].." ")
+  -- nocturnal
+  log(beeData["nocturnal"] and "X " or "- ")
+  -- flyer
+  log(beeData["tolerantFlyer"] and "X " or "- ")
+  -- cave dwelling
+  log(beeData["caveDwelling"] and "X " or "- ")
+  -- temperature tolerance
+  log(toleranceString[string.upper(beeData["temperatureTolerance"])])
+  -- humidity tolerance
+  log(toleranceString[string.upper(beeData["humidityTolerance"])])
+  -- score
+  log(beeData.score and string.format("%5.1d", beeData.score).." " or "      ")
+  logLine()
 end
 
 function dropExcess(droneData)
-  print("dropping excess...")
+  logLine("dropping excess...")
   local count = 0
   for i = 1, 16 do
     if turtle.getItemCount(i) > 0 then
@@ -834,7 +878,6 @@ clearSystem()
 while true do
   ditchProduct()
   countBees()
-  scanBees()
   princessData, droneData = analyzeBees()
   if princessData then
     if isPurebred(princessData, droneData[2]) then
