@@ -573,6 +573,7 @@ function analyzeBees()
   logLine("analyzing bees...")
   local freeSlot
   local princessSlot
+  local highestScore
   local princessData
   local droneData = {}
   turtle.turnLeft()
@@ -606,16 +607,26 @@ function analyzeBees()
       droneData[1] = nil
       princessSlot = 1
     end
-    -- bubble sort drones
-    print("sorting drones...")
+    -- selection sort drones
+    logLine("sorting drones...")
     for i = 2, 16 do
+      highestScore = i
       if turtle.getItemCount(i) > 0 and droneData[i] then
         droneData[i].score = scoreBee(princessData, droneData[i])
-        for j = i - 1, 2, -1 do
-          if droneData[j+1].score > droneData[j].score then
-            swapBee(j+1, j, freeSlot)
-            droneData[j+1], droneData[j] = droneData[j], droneData[j+1]
+        for j = i + 1, 16 do
+          if turtle.getItemCount(j) > 0 and droneData[j] then
+            if not droneData[j].score then
+              droneData[j].score = scoreBee(princessData, droneData[j])
+            end
+            if droneData[j].score > droneData[highestScore].score then
+              highestScore = j
+            end
           end
+        end
+        -- swap bees
+        if highestScore ~= i then
+          swapBee(i, highestScore, freeSlot)
+          droneData[i], droneData[highestScore] = droneData[highestScore], droneData[i]
         end
       end
     end
