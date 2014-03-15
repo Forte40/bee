@@ -1,4 +1,4 @@
--- BeeAnalyzer 4.4.1
+-- BeeAnalyzer 4.5
 -- Original code by Direwolf20
 -- Hotfix 1 by Mandydax
 -- Hotfix 2 by Mikeyhun/MaaadMike
@@ -20,6 +20,11 @@
 -- 4.4.1  Modified to work with:
 --          OpenPeripheral Core 0.3.0-s39
 --          OpenPeripheral Addons 0.1.0-s41
+-- 4.5 Tweaks & Fixes by Zixxl
+--     Changed sorting algorithm to selection sort, because swaps are slow
+--     Changed scoringsystem to solve a bug, if the princess is a purebred of the
+--      targeted bee
+--     Replaced all print commands with log command
 
 -- attribute scoring for same species tie-breaking -----------------------------
 scoresFertility = {
