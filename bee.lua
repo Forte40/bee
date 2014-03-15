@@ -693,8 +693,8 @@ end
 
 function printHeader()
   logLine()
-  logLine("typ species f spd d n f c tmp hmd score")
-  logLine("-|-|-------|-|---|-|-|-|-|---|---|-----")
+  logLine("sl t species f spd n f c tmp hmd score ")
+  logLine("--|-|-------|-|---|-|-|-|---|---|------")
 end
 
 toleranceString = {
@@ -709,43 +709,40 @@ toleranceString = {
   ["BOTH_2"] = "+-2 ",
   ["BOTH_3"] = "+-3 "
 }
+
+speedString = {
+  ["0.3"] = "0.3", -- Slowest
+  ["0.6"] = "0.6", -- Slower
+  ["0.8"] = "0.8", -- Slow
+  ["1"]   = "1.0", -- Normal
+  ["1.2"] = "1.2", -- Fast
+  ["1.4"] = "1.4", -- Faster
+  ["1.7"] = "1.7"  -- Fastest
+}
+
 function printBee(beeData)
-  log(beeData["slot"] < 10 and beeData["slot"].." " or beeData["slot"])
-  if (beeData["type"] == "princess") then
-    log("P ")
-  else
-    log("d ")
-  end
+  log(beeData["slot"] < 10 and " "..beeData["slot"].." " or beeData["slot"].." ")
+  -- type
+  log(beeData["type"] == "princess" and "P " or "D ")
+  -- species
   log(beeData["speciesPrimary"]:gsub("bees%.species%.",""):sub(1,3)..":"..beeData["speciesSecondary"]:gsub("bees%.species%.",""):sub(1,3).." ")
+  -- fertility
   log(tostring(beeData["fertility"]).." ")
-  log(beeData["speed"] == 1 and "1.0 " or tostring(beeData["speed"]).." ")
-  if beeData["diurnal"] then
-    log("d ")
-  else
-    log("  ")
-  end
-  if beeData["nocturnal"] then
-    log("n ")
-  else
-    log("  ")
-  end
-  if beeData["tolerantFlyer"] then
-    log("f ")
-  else
-    log("  ")
-  end
-  if beeData["caveDwelling"] then
-    log("c ")
-  else
-    log("  ")
-  end
-  log(toleranceString[beeData["toleranceTemperature"]])
-  log(toleranceString[beeData["toleranceHumidity"]])
-  if beeData.score then
-    logLine(string.format("%5.1d", beeData.score).." ")
-  else
-    logLine()
-  end
+  -- speed
+  log(speedString[tostring(beeData["speed"])].." ")
+  -- nocturnal
+  log(beeData["nocturnal"] and "X " or "- ")
+  -- flyer
+  log(beeData["tolerantFlyer"] and "X " or "- ")
+  -- cave dwelling
+  log(beeData["caveDwelling"] and "X " or "- ")
+  -- temperature tolerance
+  log(toleranceString[string.upper(beeData["toleranceTemperature"])])
+  -- humidity tolerance
+  log(toleranceString[string.upper(beeData["toleranceHumidity"])])
+  -- score
+  log(beeData.score and string.format("%5.1d", beeData.score).." " or "      ")
+  logLine()
 end
 
 function dropExcess(droneData)
